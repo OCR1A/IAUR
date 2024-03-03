@@ -1,91 +1,198 @@
 import cv2
 import numpy as np
 
+def preProcessing(imgf, a, b):
+    img = cv2.convertScaleAbs(imgf, alpha=a, beta=b)
+    img = np.where(img <= 110, 0, img)
+    img = np.where(img > 110, 255, img)
+    gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    cts, _ = cv2.findContours(gray_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    largest_cnr = max(cts, key=cv2.contourArea)
+    e = 0.01 * cv2.arcLength(largest_cnr, True)
+    apx = cv2.approxPolyDP(largest_cnr, e, True)
+    return apx
+
+def getVortex(apx):
+    vortex = []
+    xif = []
+    yif = []
+    for pointf in apx:
+        xf, yf = pointf[0]
+        vortex.append((xf, yf))
+    for vort in vortex:
+        xif.append(vort[0])
+        yif.append(vort[1])
+    return xif, yif
+
+def calcParameters1(xif, yif):
+    mf = []
+    bf = []
+    for i in range(0, 7, 2):
+        m_linef = (yif[i+1] - yif[i]) / (xif[i+1] - xif[i])
+        mf.append(m_linef)
+        b_linef = yif[i] - m_linef * xif[i]
+        bf.append(b_linef)
+    return mf, bf
+
+def calcParameters2(xif, yif):
+    mf = []
+    bf = []
+    for i in range(1, 6, 2):
+        m_linef = (yif[i+1] - yif[i]) / (xif[i+1] - xif[i])
+        mf.append(m_linef)
+        b_linef = yif[i] - m_linef * xif[i]
+        bf.append(b_linef)
+        if i==5:
+            i = 7
+            m_linef = (yif[0] - yif[i]) / (xif[0] - xif[i])
+            mf.append(m_linef)
+            b_linef = yif[i] - m_linef * xif[i]
+            bf.append(b_linef)
+    return mf, bf
+
+def extendLine(xif, yif, mf, imgf, bf):
+    for i in range(len(mf)-1):
+        #Puntos extremos originales de la línea
+        x1 = xif[i]
+        y1 = yif[i]
+        x2 = xif[i+1]
+        y2 = yif[i+1]
+        
+        #Calcular puntos adicionales para extender la línea
+        ext_length = 1000  # Longitud de la extensión, puedes ajustar esto según sea necesario
+        x1_ext = int(x1 - ext_length)
+        y1_ext = int(mf[i] * x1_ext + bf[i])
+        x2_ext = int(x2 + ext_length)
+        y2_ext = int(mf[i] * x2_ext + bf[i])
+        
+        #Dibujar la línea extendida
+        cv2.line(imgf, (x1_ext, y1_ext), (x2_ext, y2_ext), (0, 0, 0), 5)
+        
+    #Línea con coordenadas, ni[3], ni[0]
+    x1 = xif[0] 
+    x2 = xif[3]
+    y1 = yif[0]
+    y2 = yif[3]
+    ext_length = 1000
+    x1_ext = int(x1 - ext_length)
+    y1_ext = int(mf[3] * x1_ext + b[3])
+    x2_ext = int(x2 + ext_length)
+    y2_ext = int(mf[3] * x2_ext + b[3]) 
+
+    #Dibujar la línea especial extendida
+    cv2.line(imgf, (x1_ext, y1_ext), (x2_ext, y2_ext), (0, 0, 0), 5)
+
+def intersection(m1, b1, m2, b2):
+    if m1 == m2:
+        return None  # Las líneas son paralelas, no hay intersección
+    xf = (b2 - b1) / (m1 - m2)
+    yf = m1 * xf + b1
+    return int(xf), int(yf)
+
+
+    for i in range(len(mf)-1):
+        #Puntos extremos originales de la línea
+        x1 = xif[i]
+        y1 = yif[i]
+        x2 = xif[i+1]
+        y2 = yif[i+1]
+        
+        #Calcular puntos adicionales para extender la línea
+        ext_length = 1000  # Longitud de la extensión, puedes ajustar esto según sea necesario
+        x1_ext = int(x1 - ext_length)
+        y1_ext = int(mf[i] * x1_ext + bf[i])
+        x2_ext = int(x2 + ext_length)
+        y2_ext = int(mf[i] * x2_ext + bf[i])
+        
+        #Dibujar la línea extendida
+        cv2.line(imgf, (x1_ext, y1_ext), (x2_ext, y2_ext), (0, 0, 0), 5)
+        
+    #Línea con coordenadas, ni[3], ni[0]
+    x1 = xif[0] 
+    x2 = xif[3]
+    y1 = yif[0]
+    y2 = yif[3]
+    ext_length = 1000
+    x1_ext = int(x1 - ext_length)
+    y1_ext = int(m[3] * x1_ext + b[3])
+    x2_ext = int(x2 + ext_length)
+    y2_ext = int(m[3] * x2_ext + b[3])
+
+    #Dibujar la línea especial extendida
+    cv2.line(imgf, (x1_ext, y1_ext), (x2_ext, y2_ext), (0, 0, 0), 5)
+
+maxWidth = 1020
+maxHeight = 720
 image = cv2.imread('instrumentos2.jpg')
-image = cv2.resize(image, (1020, 720))
+image = cv2.resize(image, (maxWidth, maxHeight))
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-#Coordenadas de cada vertice, pendientes e intersección con y
-vertices = []
-m = []
-b = []
-xi = [] #Guarda la iésima x
-yi = [] #Guarda la iésima y
+#Parámetros iniciales
+alpha = 1    #Contraste
+beta = -180  #Brillo inicial (cambia con el pre procesamiento)
 
-# Ajustar el contraste y el brillo
-alpha = 1  # Contraste
-beta = -250  # Brillo
-adjusted_image = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
-adjusted_image = np.where(adjusted_image <= 110, 0, adjusted_image)
-adjusted_image = np.where(adjusted_image > 110, 255, adjusted_image)
+#Pre procesamiento de la imagen
+approx = preProcessing(image, alpha, beta)
 
-#Pasa a escala de grises
-gray_image = cv2.cvtColor(adjusted_image, cv2.COLOR_RGB2GRAY)
+#Encontramos el número de vertices por fuerza bruta
+while len(approx) != 8:
+    beta -= 1
+    approx = preProcessing(image, alpha, beta)
 
-#Encuentra los contornos
-contours, _ = cv2.findContours(gray_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+#Listas que almacenan las coordenadas de cada vertice
+xi, yi = getVortex(approx)
 
-#Encuentra el contorno más grande (que debería ser el contorno del área blanca)
-largest_contour = max(contours, key=cv2.contourArea)
+#Calcula la pendiente y la intersección con 'y'
+m, b = calcParameters1(xi, yi)
 
-#Aproximar el contorno para hacer que los bordes sean más angulares
-epsilon = 0.01 * cv2.arcLength(largest_contour, True)
-approx = cv2.approxPolyDP(largest_contour, epsilon, True)
-#Ordenar los puntos de approx de izquierda a derecha
-#approxsorted = sorted(approx, key=lambda x: x[0][0])
+#Encuentra las intersecciones con cada recta
+ix1, iy1 = intersection(m[0], b[0], m[1], b[1])
+ix2, iy2 = intersection(m[1], b[1], m[2], b[2])
+ix3, iy3 = intersection(m[2], b[2], m[3], b[3])
+ix4, iy4 = intersection(m[3], b[3], m[0], b[0])
 
-#Obtenemos las coordenadas de cada intersección
-for point in approx:
-    x, y = point[0]
-    vertices.append((x, y))
+#Manipula el cálculo de las rectas para arreglar la orientación
+if(ix1 > 0 and ix1 < maxWidth and iy1 > 0 and iy1 < maxHeight
+and ix2 > 0 and ix2 < maxWidth and iy2 > 0 and iy2 < maxHeight
+and ix3 > 0 and ix3 < maxWidth and iy3 > 0 and iy3 < maxHeight
+and ix4 > 0 and ix4 < maxWidth and iy4 > 0 and iy4 < maxHeight
+):
+    pass
+else:
+    cdr = 0
+    while(ix1 < 0 or ix1 > maxWidth or iy1 < 0 or iy1 > maxHeight
+        or ix2 < 0 or ix2 > maxWidth or iy2 < 0 or iy2 > maxHeight
+        or ix3 < 0 or ix3 > maxWidth or iy3 < 0 or iy3 > maxHeight
+        or ix4 < 0 or ix4 > maxWidth or iy4 < 0 or iy4 > maxHeight
+        ):
+        if cdr == 0:
+            m, b = calcParameters1(xi, yi)
+            ix1, iy1 = intersection(m[0], b[0], m[1], b[1])
+            ix2, iy2 = intersection(m[1], b[1], m[2], b[2])
+            ix3, iy3 = intersection(m[2], b[2], m[3], b[3])
+            ix4, iy4 = intersection(m[3], b[3], m[0], b[0])
+        elif cdr == 1:
+            m, b = calcParameters2(xi, yi)
+            ix1, iy1 = intersection(m[0], b[0], m[1], b[1])
+            ix2, iy2 = intersection(m[1], b[1], m[2], b[2])
+            ix3, iy3 = intersection(m[2], b[2], m[3], b[3])
+            ix4, iy4 = intersection(m[3], b[3], m[0], b[0])
+        cdr += 1
 
-#Almacenamos xi, yi en arreglos individuales
-for i in range(0, len(vertices)):
-    xi.append(vertices[i][0])
-for vertice in vertices:
-    yi.append(vertice[1])
+#Dibujamos las líneas de segmentación
+extendLine(xi, yi, m, image, b)
 
-for i in range(0, 7, 2):
-    m_line = (yi[i+1] - yi[i]) / (xi[i+1] - xi[i])
-    m.append(m_line)
-    b_line = yi[i] - m_line * xi[i]
-    b.append(b_line)
+#Imprimimos los puntos para debuggear
+print(f"x1, y1: {ix1, iy1}")
+print(f"x2, y2: {ix2, iy2}")
+print(f"x3, y3: {ix3, iy3}")
+print(f"x4, y4: {ix4, iy4}")
 
-#Elimina los elementos impares de la lista
-for i in range(len(xi)-1, -1, -2):
-    xi.pop(i)
-    yi.pop(i)
-
-for i in range(len(m)-1):
-    #Puntos extremos originales de la línea
-    x1 = xi[i]
-    y1 = yi[i]
-    x2 = xi[i+1]
-    y2 = yi[i+1]
-    
-    #Calcular puntos adicionales para extender la línea
-    extended_length = 1000  # Longitud de la extensión, puedes ajustar esto según sea necesario
-    x1_extended = int(x1 - extended_length)
-    y1_extended = int(m[i] * x1_extended + b[i])
-    x2_extended = int(x2 + extended_length)
-    y2_extended = int(m[i] * x2_extended + b[i])
-    
-    #Dibujar la línea extendida
-    cv2.line(image, (x1_extended, y1_extended), (x2_extended, y2_extended), (0, 0, 0), 5)
-    
-#Línea con coordenadas, ni[3], ni[0]
-x1 = xi[0] 
-x2 = xi[3]
-y1 = yi[0]
-y2 = yi[3]
-extended_length = 1000
-x1_extended = int(x1 - extended_length)
-y1_extended = int(m[3] * x1_extended + b[3])
-x2_extended = int(x2 + extended_length)
-y2_extended = int(m[3] * x2_extended + b[3])
-
-#Dibujar la línea especial extendida
-cv2.line(image, (x1_extended, y1_extended), (x2_extended, y2_extended), (0, 0, 0), 5)
+#Dibujamos los puntos
+cv2.circle(image, (ix1, iy1), 1, (0,117,255), 20)
+cv2.circle(image, (ix2, iy2), 1, (0,117,255), 20)
+cv2.circle(image, (ix3, iy3), 1, (0,117,255), 20)
+cv2.circle(image, (ix4, iy4), 1, (0,117,255), 20)
 
 cv2.imshow('Resultado', image)
 cv2.waitKey(0)
