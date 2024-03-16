@@ -1,3 +1,4 @@
+#An example on how to segment images (NOT USED IN FINAL CODE YET)
 import cv2
 import numpy as np
 
