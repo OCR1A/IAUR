@@ -30,13 +30,13 @@ z = 0.01
 ur5_ip = "192.168.1.1" 
 ur5_port = 30002 
 
-ur5_move_command_1 = "movel(p[.34,-.6,0.7,1.382,.633,.653], a = 1.2, v = 0.25, t = 0, r = 0)\n"
-ur5_move_command_2 = "movej([0, -1.5708, -1.5708, -1.5708, 1.5708, 3.1416], a=1, v=1.05)\n"
-ur5_move_command_3 = "movel(p[.34,-.6,0.01,3.1415,0,0], a = 1.2, v = 0.25, t = 0, r = 0)\n"
-ur5_move_command_4 = f"movel(p[{x},{y},{z},3.1415,0,0], a = 1.2, v = 0.25, t = 0, r = 0)\n"
-ur5_move_command_5 = "movel(p[-.14,-.6,0.01,3.1415,0,0], a = 1.2, v = 0.25, t = 0, r = 0)\n"
+ur5_move_command_1 = "movel(p[.064,-.269,.325,0,3.142,0], a = 1.2, v = 0.25, t = 0, r = 0)\n" #Origen 1 para pruebas
+ur5_move_command_2 = "movel(p[.064,-.269,.325,2.471,1.940,0], a = 1.2, v = 0.25, t = 0, r = 0)\n" #Origen 2 para pruebas
+ur5_move_command_3 = "movel(p[.064,-.269,.285,3.139,0.126,0], a = 1.2, v = 0.25, t = 0, r = 0)\n" #Origen 3 para pruebas
+ur5_move_command_4 = "movel(p[-.060,-.270,.284,1.388,2.819,0], a = 1.2, v = 0.25, t = 0, r = 0)\n" #Origen 4 para pruebas
+ur5_move_command_5 = "movel(p[-.174,-.286,.281,0.204,3.135,0], a = 1.2, v = 0.25, t = 0, r = 0)\n" #Origen 5 para pruebas
 
-send_instruction_to_ur5(ur5_ip, ur5_port, ur5_move_command_2)
+send_instruction_to_ur5(ur5_ip, ur5_port, ur5_move_command_1)
 
 # Application examples:
 # "movel(p[.15,-.6,-.392,3.053,.747,-.], a = 1.2, v = 0.25, t = 0, r = 0)\n"
