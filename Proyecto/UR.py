@@ -4,14 +4,17 @@ import pyrealsense2 as rs
 import cv2
 import numpy as np
 
+#Función para encontrar la densidad de pixeles por metro
 def mapValue(value, from_low, from_high, to_low, to_high):
     return (value - from_low) * (to_high - to_low) / (from_high - from_low) + to_low
 
-def mouse_callback(event, x, y, flags, params):
+#Función para guardar el punto seleccionado a donde se quiere llevar el robot
+def mouseCallback(event, x, y, flags, params):
     if event == cv2.EVENT_LBUTTONDOWN:
         #Guarda las coordenadas del clic en la lista de coordenadas
         params['coords'].append((x, y))
 
+#Función para obtener tanto coordenadas articulares como cartesianas del robot vía Socket
 def getPose():
     #Conexión con el UR5
     HOST = '192.168.1.1'
@@ -64,29 +67,31 @@ def getPose():
 
     return x, y, z, rx, ry, rz, angle[5]
 
-def send_instruction_to_ur5(ip, port, instruction):
+#Función para pedirle al UR5 hacer un movimiento lineal 
+def sendInstructionToUr5(ip, port, instruction):
     try:
-        #Socket object
+        #Objeto socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
-        #Connect to robot
+        #Conectarse al robot
         sock.connect((ip, port))
         
-        #Send the instruction to the robot
+        #Manda la instrucción al robot
         sock.sendall(instruction.encode())
         
-        print("Instruction sent to UR5 robot:", instruction)
+        print("Instrucción mandada al UR5: ", instruction)
         
-        #Close the socket
+        #Cierra la conexión
         sock.close()
         
     except ConnectionRefusedError:
-        print("Connection refused")
+        print("Conexión rechazada")
     
     except TimeoutError:
-        print("Timeout, can't connect")
+        print("Tiempo agotado, no se puede conectar")
 
-def iniciar_camara():
+#Función para abrir la cámara (no es fotografía)
+def startCamera():
     #Inicializar la cámara RealSense
     pipeline = rs.pipeline()
     config = rs.config()
@@ -132,7 +137,8 @@ def iniciar_camara():
         pipeline.stop()
         cv2.destroyAllWindows()
 
-def capturar_y_mostrar_foto():
+#Función para capturar, tomar una foto y recibir un click hacia donde se quiere mover el robot
+def takeAndShowPhoto():
     #Configurar el pipeline y el stream de la cámara RealSense
     pipeline = rs.pipeline()
     config = rs.config()
@@ -175,7 +181,7 @@ def capturar_y_mostrar_foto():
         
         #Mostrar la imagen anotada
         cv2.imshow('RealSense Camera Photo', color_image)
-        cv2.setMouseCallback('RealSense Camera Photo', mouse_callback, clic_coords)
+        cv2.setMouseCallback('RealSense Camera Photo', mouseCallback, clic_coords)
 
         #Esperar a que el usuario presione una tecla antes de cerrar la ventana
         cv2.waitKey(0)
@@ -186,6 +192,7 @@ def capturar_y_mostrar_foto():
 
         return H, V, clic_coords['coords']
 
+#Función para calcular las coordenadas cartesianas del origen del frame respecto a la base del robot
 def frameOriginCoordinates(xtool, ytool, H, V, wrist3):
     radio = 39.18
     longitud_tangente = 11.5
@@ -212,6 +219,7 @@ def frameOriginCoordinates(xtool, ytool, H, V, wrist3):
 
     return ofx, ofy, angulo_tangencia
 
+#Función para transformar coordenadas locales de la fotografía en coordenadas globales (respecto la base del robot)
 def transformCoordinates(x1, y1, ofx, ofy, theta):
     r = np.array([
                     [0, -1, 0],
@@ -248,7 +256,7 @@ def transformCoordinates(x1, y1, ofx, ofy, theta):
     
     return coordTransf[0][0], coordTransf[1][0]
 
-#Configuración del socket
+#IP y puerto del robot
 ur5_ip = "192.168.1.1" 
 ur5_port = 30002 
 
@@ -256,9 +264,11 @@ ur5_port = 30002
 xr, yr, zr, rxr, ryr, rzr, wrist3r = getPose()
 xr = xr * 1000
 yr = yr * 1000
-Hr, Vr, objCoor = capturar_y_mostrar_foto()
+Hr, Vr, objCoor = takeAndShowPhoto()
 angle = np.rad2deg(wrist3r)
 ofxr, ofyr, thetar = frameOriginCoordinates(xr, yr, Hr, Vr, angle)
+
+#Transformación de coordenadas locales del frame a coordenadas globales (base del robot)
 xfinal = mapValue(objCoor[0][0], 0, 640, 0, Hr)
 yfinal = mapValue(objCoor[0][1], 0, 480, 0, Vr)
 xtransf, ytransf = transformCoordinates(xfinal, yfinal, ofxr, ofyr, thetar)
@@ -269,6 +279,8 @@ ofyr = ofyr / 1000
 xtransf = xtransf / 1000
 ytransf = ytransf / 1000
 ofzr = 0.05
+
+#Solo para debuggear
 print(f"ofxr: {ofxr}")
 print(f"ofyr: {ofyr}")
 print(f"ofzr: {ofzr}")
@@ -281,7 +293,8 @@ print(f"Objeto en y: {objCoor[0][1]}")
 print(f"xtransf: {xtransf}")
 print(f"ytransf: {ytransf}")
 
+#Se mandan las coordenadas obtenidas al robot
 ur5_move_command = f"movel(p[{xtransf},{ytransf},{ofzr},{rxr},{ryr},{rzr}], a = 1.2, v = 0.25, t = 0, r = 0)\n"
-send_instruction_to_ur5(ur5_ip, ur5_port, ur5_move_command)
+sendInstructionToUr5(ur5_ip, ur5_port, ur5_move_command)
 
-#iniciar_camara()
+#startCamera()
